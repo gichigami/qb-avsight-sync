@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AirBridgeQB - Automated synchronization between QuickBooks Online and Salesforce. Perfect for AR/AP sync. Eliminate manual data entry and ensure real-time data consistency.">
+    <meta name="keywords" content="QuickBooks, Salesforce, AvSight, synchronization, integration, automation, ERP, AR, AP, accounts receivable, accounts payable">
+    <title>AirBridgeQB - QuickBooks & Salesforce Integration</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar" id="navbar">
+        <div class="container">
+            <div class="nav-brand">AirBridgeQB</div>
+            <ul class="nav-menu" id="nav-menu">
+                <li><a href="#home" class="nav-link">Home</a></li>
+                <li><a href="#features" class="nav-link">Features</a></li>
+                <li><a href="#solution" class="nav-link">Solution</a></li>
+                <li><a href="#customization" class="nav-link">Customization</a></li>
+                <li><a href="#pricing" class="nav-link">Pricing</a></li>
+                <li><a href="#contact" class="nav-link">Contact</a></li>
+            </ul>
+            <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">Sync QuickBooks & Salesforce Automatically</h1>
+                <p class="hero-subtitle">Perfect for any Salesforce environment requiring AR/AP synchronization. Eliminate manual data entry. Ensure real-time financial data consistency. Save time and reduce errors with enterprise-grade automation.</p>
+                <div class="hero-buttons">
+                    <a href="#contact" class="btn btn-primary">Get Started</a>
+                    <a href="#features" class="btn btn-secondary">Learn More</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Problem Statement -->
+    <section id="problem" class="problem-section">
+        <div class="container">
+            <h2 class="section-title">The Problem You're Facing</h2>
+            <div class="problem-grid">
+                <div class="problem-card">
+                    <div class="problem-icon">⏱️</div>
+                    <h3>Manual Data Entry</h3>
+                    <p>Hours wasted manually entering invoices and bills between QuickBooks and Salesforce</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">❌</div>
+                    <h3>Data Inconsistencies</h3>
+                    <p>Errors and discrepancies that create confusion and require constant reconciliation</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">📊</div>
+                    <h3>Outdated Information</h3>
+                    <p>Delays in updating balances and statuses mean decisions are made on stale data</p>
+                </div>
+                <div class="problem-card">
+                    <div class="problem-icon">💰</div>
+                    <h3>High Costs</h3>
+                    <p>Time-consuming manual processes eat into productivity and profitability</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Solution Overview -->
+    <section id="solution" class="solution-section">
+        <div class="container">
+            <div class="solution-content">
+                <h2 class="section-title">The AirBridgeQB Solution</h2>
+                <p class="solution-description">
+                    AirBridgeQB is an automated synchronization system that seamlessly connects QuickBooks Online with Salesforce, perfect for environments requiring Accounts Receivable (AR) and Accounts Payable (AP) synchronization. 
+                    Built on AWS Lambda, it runs automatically on your schedule, keeping your financial data synchronized without any manual intervention. 
+                    <strong>Works with any Salesforce org</strong>, including AvSight and custom implementations.
+                </p>
+                <div class="solution-stats">
+                    <div class="stat-item">
+                        <div class="stat-number">24/7</div>
+                        <div class="stat-label">Automated Sync</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number stat-number-small">2-15 min</div>
+                        <div class="stat-label">Configurable Sync</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">99.9%</div>
+                        <div class="stat-label">Reliability</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number stat-number-small">~$6-145</div>
+                        <div class="stat-label">Infrastructure/mo*</div>
+                    </div>
+                </div>
+                <p class="stat-note">*Infrastructure costs vary by sync frequency: ~$6-7/month (Standard: 15 min during working hours), ~$28/month (Business Critical: 5 min working hours, 30 min outside), or ~$145/month (Real-Time: 2 min, 24/7)</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Key Features -->
+    <section id="features" class="features-section">
+        <div class="container">
+            <h2 class="section-title">Powerful Features</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Automated Synchronization</h3>
+                    <p>Bidirectional sync between QuickBooks Online and Salesforce for standard implementations. AvSight environments use unidirectional sync (QuickBooks → Salesforce) since AvSight has native sync for invoices → QuickBooks. Invoices and bills update automatically, keeping both systems in perfect alignment. Perfect for AR/AP synchronization needs.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Configurable Sync Frequency</h3>
+                    <p>Incremental sync can be configured from every 2 minutes (24/7) to every 15 minutes during business hours. Choose Standard for typical operations, Business Critical for frequent business-hour updates, or Real-Time for near-instant synchronization. Only processes records that have changed, ensuring fast and efficient synchronization.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🌙</div>
+                    <h3>Daily Full Sync</h3>
+                    <p>Comprehensive daily sync ensures complete data consistency. Runs automatically each morning to catch any missed updates.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📧</div>
+                    <h3>Email Summaries</h3>
+                    <p>Receive detailed email summaries of all sync activities. Stay informed about what changed, what was updated, and any issues that need attention.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">☁️</div>
+                    <h3>AWS Lambda Powered</h3>
+                    <p>Serverless architecture means no servers to manage, automatic scaling, and enterprise-grade reliability. Built on AWS infrastructure you can trust.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>Secure & Compliant</h3>
+                    <p>All credentials stored securely in AWS Secrets Manager. OAuth token management with automatic refresh. Your data is protected with enterprise security.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📈</div>
+                    <h3>Real-Time Balance Updates</h3>
+                    <p>Invoice and bill balances update in real-time as payments are recorded. Status changes automatically reflect current payment state.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3>Error Handling</h3>
+                    <p>Comprehensive error handling and logging. Issues are logged and reported, with automatic retry logic for transient failures.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Customization Section -->
+    <section id="customization" class="customization-section">
+        <div class="container">
+            <h2 class="section-title">Fully Customized to Your Needs</h2>
+            <p class="customization-intro">
+                Every business is unique. AirBridgeQB is fully customized during deployment to match your specific requirements, 
+                ensuring it works seamlessly with your existing processes and data structures. 
+                <strong>AvSight environments</strong> benefit from pre-optimized configurations and use unidirectional sync (QuickBooks → Salesforce) since AvSight already has native sync that moves invoices to QuickBooks. 
+                <strong>Other Salesforce environments</strong> receive additional customization for bidirectional sync and to analyze and adapt to your custom object structure.
+            </p>
+            <div class="customization-grid">
+                <div class="customization-item">
+                    <h3>📋 Salesforce Object Mapping</h3>
+                    <p>Configured to work with your specific Salesforce object structure. Whether you use Bill__c, Payment__c, or custom objects, we'll map it correctly.</p>
+                </div>
+                <div class="customization-item">
+                    <h3>🔄 Field Mappings</h3>
+                    <p>Adapted to your unique field requirements. We ensure all QuickBooks data maps correctly to your Salesforce fields, preserving all important information.</p>
+                </div>
+                <div class="customization-item">
+                    <h3>⏰ Sync Frequency</h3>
+                    <p>Tailored to your business needs. Configure incremental sync schedules and daily sync times that work best for your operations.</p>
+                </div>
+                <div class="customization-item">
+                    <h3>📧 Notification Preferences</h3>
+                    <p>Set up email summaries for the right stakeholders. Customize recipient lists, email content, and reporting frequency to match your workflow.</p>
+                </div>
+                <div class="customization-item">
+                    <h3>🏢 Business Logic</h3>
+                    <p>Adapted to your specific business processes. Payment status rules, balance calculations, and data transformations customized for your use case.</p>
+                </div>
+                <div class="customization-item">
+                    <h3>🔗 Relationship Mapping</h3>
+                    <p>Configured to link records correctly with your Accounts, Orders, Repair Orders, and other related objects based on your data model.</p>
+                </div>
+            </div>
+            <div class="customization-cta">
+                <p class="cta-text">During deployment, we work closely with you to understand your requirements and customize AirBridgeQB accordingly. No one-size-fits-all solutions—just a perfect fit for your business.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Benefits Section -->
+    <section id="benefits" class="benefits-section">
+        <div class="container">
+            <h2 class="section-title">Why Choose AirBridgeQB?</h2>
+            <div class="benefits-grid">
+                <div class="benefit-item">
+                    <h3>💰 Cost Effective</h3>
+                    <p>Infrastructure costs under $20/month (typically $6-7/month). Get enterprise-grade automation at a fraction of the cost of manual processes or dedicated servers.</p>
+                </div>
+                <div class="benefit-item">
+                    <h3>⏱️ Time Saving</h3>
+                    <p>Eliminate hours of manual data entry every week. Your team can focus on value-added work instead of repetitive tasks.</p>
+                </div>
+                <div class="benefit-item">
+                    <h3>✅ Accuracy</h3>
+                    <p>Reduce human errors and data inconsistencies. Automated sync ensures data accuracy across both systems.</p>
+                </div>
+                <div class="benefit-item">
+                    <h3>📊 Real-Time Visibility</h3>
+                    <p>Always have up-to-date financial data in Salesforce. Make informed decisions based on current information.</p>
+                </div>
+                <div class="benefit-item">
+                    <h3>🛡️ Reliability</h3>
+                    <p>Built on AWS Lambda with automatic scaling and redundancy. Your sync runs reliably, even during high-load periods.</p>
+                </div>
+                <div class="benefit-item">
+                    <h3>🔧 Easy Maintenance</h3>
+                    <p>Serverless architecture means no servers to maintain or update. We handle the infrastructure, you reap the benefits.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Technical Details (Minimal) -->
+    <section id="technical" class="technical-section">
+        <div class="container">
+            <h2 class="section-title">Built on Proven Technology</h2>
+            <div class="technical-content">
+                <p>AirBridgeQB leverages industry-standard technologies for reliability and performance:</p>
+                <div class="tech-stack">
+                    <div class="tech-item">AWS Lambda</div>
+                    <div class="tech-item">QuickBooks API</div>
+                    <div class="tech-item">Salesforce API</div>
+                    <div class="tech-item">AWS Secrets Manager</div>
+                    <div class="tech-item">EventBridge</div>
+                    <div class="tech-item">S3</div>
+                </div>
+                <p class="tech-note">All credentials and sensitive data are stored securely using AWS best practices. The system automatically handles token refresh, error recovery, and logging.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="pricing-section">
+        <div class="container">
+            <h2 class="section-title">Simple, Transparent Pricing</h2>
+            <p class="pricing-intro">AirBridgeQB pricing is straightforward with no hidden fees. Choose monthly support for predictable costs, or use on-demand hourly support to pay only when needed.</p>
+            
+            <div class="pricing-overview">
+                <!-- Deployment Section -->
+                <div class="pricing-group">
+                    <div class="group-header">
+                        <h3>One-Time Deployment</h3>
+                        <div class="pricing-badge">Required</div>
+                    </div>
+                    <div class="pricing-cards-compact">
+                        <div class="pricing-card-compact selectable-card" data-deployment="avsight" data-price-min="4200" data-price-max="6000">
+                            <div class="card-compact-header">
+                                <h4>Salesforce AvSight</h4>
+                                <span class="price-compact">$4,200 - $6,000</span>
+                            </div>
+                            <p class="card-compact-desc">Unidirectional sync (QuickBooks → Salesforce). AvSight has native sync for invoices → QuickBooks.</p>
+                            <ul class="features-compact">
+                                <li>✓ QuickBooks API & OAuth setup</li>
+                                <li>✓ AvSight customization (unidirectional)</li>
+                                <li>✓ AWS deployment</li>
+                                <li>✓ Testing & training</li>
+                                <li>✓ 30-day support</li>
+                            </ul>
+                            <div class="card-select-indicator">Click to select</div>
+                        </div>
+                        <div class="pricing-card-compact selectable-card" data-deployment="other" data-price-min="6500" data-price-max="9000">
+                            <div class="card-compact-header">
+                                <h4>Other Salesforce</h4>
+                                <span class="price-compact">$6,500 - $9,000</span>
+                            </div>
+                            <p class="card-compact-desc">Bidirectional sync (QuickBooks ↔ Salesforce) with custom deployment</p>
+                            <ul class="features-compact">
+                                <li>✓ Bidirectional sync (full AR/AP)</li>
+                                <li>✓ Custom object analysis</li>
+                                <li>✓ Extended field mapping</li>
+                                <li>✓ Custom business logic</li>
+                                <li>✓ 45-day support</li>
+                            </ul>
+                            <p class="compact-note"><strong>Why more?</strong> Requires thorough analysis of custom structures and processes, plus bidirectional sync implementation.</p>
+                            <div class="card-select-indicator">Click to select</div>
+                        </div>
+                    </div>
+                    <p class="group-note">Payment can be structured in phases. Contact for detailed quote.</p>
+                </div>
+
+                <!-- Infrastructure Section -->
+                <div class="pricing-group infrastructure-group">
+                    <div class="group-header">
+                        <h3>Infrastructure Costs (AWS)</h3>
+                        <div class="pricing-badge">Variable</div>
+                    </div>
+                    <div class="pricing-cards-compact infra-scenarios">
+                        <div class="pricing-card-compact selectable-card" data-infrastructure="standard" data-price-min="6" data-price-max="7">
+                            <div class="card-compact-header">
+                                <h4>Standard</h4>
+                                <span class="price-compact">~$6-7/mo</span>
+                            </div>
+                            <p class="card-compact-desc">15 min sync during working hours (8 AM - 5 PM)</p>
+                            <div class="infra-breakdown-small">
+                                <span>Lambda: $3.24</span>
+                                <span>Logs: $2.77</span>
+                                <span>Secrets: $1.20</span>
+                                <span>Other: $0.21</span>
+                            </div>
+                            <p class="compact-note">~1,080 syncs/month. Perfect for typical business operations with regular data updates.</p>
+                            <div class="card-select-indicator">Click to select</div>
+                        </div>
+                        <div class="pricing-card-compact selectable-card" data-infrastructure="business-critical" data-price-min="28" data-price-max="28">
+                            <div class="card-compact-header">
+                                <h4>Business Critical</h4>
+                                <span class="price-compact">~$28/mo</span>
+                            </div>
+                            <p class="card-compact-desc">5 min during working hours, 30 min outside (24/7)</p>
+                            <div class="infra-breakdown-small">
+                                <span>Lambda: $12.42</span>
+                                <span>Logs: $17.71</span>
+                                <span>Secrets: $1.20</span>
+                                <span>Other: $1.40</span>
+                            </div>
+                            <p class="compact-note">~4,140 syncs/month. Ideal for operations requiring frequent updates during business hours with overnight coverage.</p>
+                            <div class="card-select-indicator">Click to select</div>
+                        </div>
+                        <div class="pricing-card-compact selectable-card" data-infrastructure="real-time" data-price-min="145" data-price-max="145">
+                            <div class="card-compact-header">
+                                <h4>Real-Time</h4>
+                                <span class="price-compact">~$145/mo</span>
+                            </div>
+                            <p class="card-compact-desc">2 min sync, 24/7 (all day)</p>
+                            <div class="infra-breakdown-small">
+                                <span>Lambda: $64.80</span>
+                                <span>Logs: $102.97</span>
+                                <span>Secrets: $1.20</span>
+                                <span>Other: $1.29</span>
+                            </div>
+                            <p class="compact-note">~21,600 syncs/month. For businesses requiring near-instant data synchronization around the clock.</p>
+                            <div class="card-select-indicator">Click to select</div>
+                        </div>
+                    </div>
+                    <p class="group-note">Costs scale with sync frequency. Most customers use the Standard plan for typical business operations. Business Critical provides more frequent updates during active hours, while Real-Time offers near-instant synchronization. Sync frequency is fully configurable during deployment.</p>
+                </div>
+            </div>
+
+            <div class="pricing-summary">
+                <h3>Your Selected Options</h3>
+                <p class="summary-intro">Click on the cards above to select your options. Your total cost will update automatically.</p>
+                <div class="summary-breakdown">
+                    <div class="summary-item">
+                        <span class="summary-label">One-Time Deployment:</span>
+                        <span class="summary-value" id="deployment-cost">$4,200 - $6,000</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Monthly Infrastructure:</span>
+                        <span class="summary-value" id="infrastructure-cost">~$6-7/month</span>
+                    </div>
+                    <div class="summary-item total">
+                        <span class="summary-label">Total Monthly Cost:</span>
+                        <span class="summary-value" id="monthly-total">~$6-7/month</span>
+                    </div>
+                </div>
+                <p class="summary-note">Deployment is a one-time cost. Monthly infrastructure costs are recurring and vary based on sync frequency.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Form -->
+    <section id="contact" class="contact-section">
+        <div class="container">
+            <h2 class="section-title">Get Started Today</h2>
+            <p class="contact-intro">Ready to eliminate manual data entry and automate your QuickBooks-Salesforce sync? Contact us to discuss your specific needs and get a customized solution.</p>
+            <div class="contact-wrapper">
+                <form class="contact-form" id="contact-form">
+                    <div class="form-group">
+                        <label for="name">Name *</label>
+                        <input type="text" id="name" name="name" required>
+                        <span class="error-message" id="name-error"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="company">Company *</label>
+                        <input type="text" id="company" name="company" required>
+                        <span class="error-message" id="company-error"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email *</label>
+                        <input type="email" id="email" name="email" required>
+                        <span class="error-message" id="email-error"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Phone</label>
+                        <input type="tel" id="phone" name="phone">
+                        <span class="error-message" id="phone-error"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="message">Message *</label>
+                        <textarea id="message" name="message" rows="5" required></textarea>
+                        <span class="error-message" id="message-error"></span>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-submit">Send Message</button>
+                    <div class="form-message" id="form-message"></div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>AirBridgeQB</h3>
+                    <p>Automated synchronization between QuickBooks Online and Salesforce. Perfect for AR/AP sync in any Salesforce environment.</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Contact</h4>
+                    <p>Email: <a href="mailto:gjohnson@pioneer-aero.com">gjohnson@pioneer-aero.com</a></p>
+                </div>
+                <div class="footer-section">
+                    <h4>Services</h4>
+                    <ul>
+                        <li>QuickBooks Integration</li>
+                        <li>Salesforce AR/AP Sync</li>
+                        <li>AvSight Integration</li>
+                        <li>Custom Deployment</li>
+                        <li>Ongoing Support</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 AirBridgeQB. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
+

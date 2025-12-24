@@ -1,0 +1,14 @@
+# Dependencies for local development and testing
+# Note: pandas and boto3 are provided by AWS Lambda layer (AWSSDKPandas-Python311)
+# but we install them locally for testing
+pandas>=2.0.0
+requests>=2.31.0
+simple-salesforce>=1.12.0
+boto3>=1.28.0
+psutil>=5.9.0  # Optional: for system memory info in local development
+
+# For Lambda deployment:
+# - pandas and boto3 are provided by the AWSSDKPandas-Python311 layer
+# - Only requests and simple-salesforce (and their dependencies) need to be packaged
+# - psutil is not needed for Lambda (memory info not available)
+

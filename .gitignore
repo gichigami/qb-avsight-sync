@@ -1,0 +1,32 @@
+# Config file with potentially sensitive settings
+config.json
+
+# Credentials
+qb_credentials.json
+*.json
+!package.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AWS
+response.json
+*.zip
+
