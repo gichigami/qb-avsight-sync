@@ -13,50 +13,42 @@ This Lambda function:
 
 ## 📁 Project Structure
 
-One directory per deployed Lambda, each a **byte-exact mirror of that
-function's deployed package**:
+Shared modules live in one place; each function directory holds its handler and
+anything specific to it. A deployment package is `_shared/` + the function dir:
 
 ```
 QBsync/
 ├── functions/
+│   ├── _shared/                         # one canonical copy, used by both
+│   │   ├── utils.py                     #   email, secrets, S3, alerting
+│   │   ├── config.py                    #   configuration accessors
+│   │   └── salesforce_connector.py      #   Salesforce API client
 │   ├── qb-avsight-sync/                 # -> Lambda: qb-avsight-sync
-│   │   ├── lambda_function.py           #    main sync handler
-│   │   ├── quickbooks_connector.py      #    QuickBooks API client
-│   │   ├── salesforce_connector.py
-│   │   ├── utils.py
-│   │   ├── config.py
-│   │   ├── config.json                  #    runtime config (no secrets)
-│   │   └── requirements.txt             #    pinned to this package's versions
+│   │   ├── lambda_function.py           #   main sync handler
+│   │   ├── quickbooks_connector.py      #   QuickBooks client (this fn only)
+│   │   ├── config.json                  #   runtime config (no secrets)
+│   │   └── requirements.txt             #   pinned dependencies
 │   └── qb-avsight-end-of-day-email/     # -> Lambda: qb-avsight-end-of-day-email
-│       ├── lambda_function.py           #    EOD email handler
-│       ├── salesforce_connector.py      #    (no quickbooks_connector: unused)
-│       ├── utils.py
-│       ├── config.py
+│       ├── lambda_function.py           #   EOD email handler
 │       ├── config.json
 │       └── requirements.txt
 ├── scripts/
-│   ├── build_and_deploy.sh              # build + deploy one function
+│   ├── build_and_deploy.sh              # assemble _shared + fn dir, deploy
 │   └── verify_against_prod.sh           # assert repo == deployed code
 ├── docs/PRODUCTION_STATE.md             # deployed AWS resources
 └── README.md
 ```
 
-> **Why the modules are duplicated rather than shared.** The two Lambdas are
-> deployed independently and are currently running *different builds* of
-> `utils.py`, `config.py`, and even different dependency versions (`attrs`
-> 25.4.0 vs 26.1.0). A single shared copy could not represent that without
-> misstating what one of them actually runs. Each directory therefore mirrors
-> its own package exactly.
->
-> This is a deliberate trade: editing shared behavior means editing both
-> copies. Run `scripts/verify_against_prod.sh` after any change — it fails on
-> drift. If the two are ever deployed from the same build, collapsing them
-> back into a shared module is a reasonable follow-up.
+A function's own file wins over `_shared/` on a name collision, so a function
+can override a shared module if it ever genuinely needs to. Neither does today.
 
-> **This repo is the source of truth**, reconciled against the live packages on
-> 2026-08-28 and verified byte-for-byte. Deploy only via
-> `scripts/build_and_deploy.sh`; see `docs/PRODUCTION_STATE.md` for the full
-> deployed configuration.
+> **`config.json` stays per-function** — the two deployments legitimately carry
+> different keys (the sync's includes the PO-sync settings). So do the pinned
+> `requirements.txt` files.
+
+> **This repo is the source of truth**, reconciled against the live packages and
+> verified byte-for-byte. Deploy only via `scripts/build_and_deploy.sh`; see
+> `docs/PRODUCTION_STATE.md` for the full deployed configuration.
 
 ### Checking the repo still matches production
 
@@ -125,9 +117,9 @@ aws secretsmanager create-secret \
 
 ### 3. Package and Deploy
 
-Use the build script — it packages one function directory, installs that
-function's pinned dependencies, and excludes the packages supplied by Lambda
-layers:
+Use the build script — it assembles `functions/_shared/` plus the function's own
+directory, installs that function's pinned dependencies, and excludes the
+packages supplied by Lambda layers:
 
 ```bash
 scripts/build_and_deploy.sh qb-avsight-sync
@@ -206,13 +198,14 @@ aws lambda add-permission \
 
 ### Email Recipients
 
-Edit the recipients list in `config.json`:
+Each function has its own `config.json`. Edit the relevant one, then redeploy
+that function:
 
-```python
-recipients = [
-    'user1@pioneer-aero.com',
-    'user2@pioneer-aero.com',
-]
+```jsonc
+// functions/qb-avsight-sync/config.json          -> run-summary emails
+// functions/qb-avsight-end-of-day-email/config.json -> daily-summary emails
+"email_recipients_run_summary":   ["user1@pioneer-aero.com"],
+"email_recipients_daily_summary": ["user1@pioneer-aero.com"]
 ```
 
 ### Sync Schedule
@@ -321,9 +314,10 @@ scripts/build_and_deploy.sh qb-avsight-sync   # or qb-avsight-end-of-day-email
 scripts/verify_against_prod.sh                # confirm they now match
 ```
 
-If a change touches shared behaviour (`utils.py`, `config.py`,
-`salesforce_connector.py`), remember both function directories carry their own
-copy — update and deploy each one you intend to change.
+A change to `functions/_shared/` affects **both** Lambdas, but only the one you
+deploy actually picks it up. After editing a shared module, deploy every
+function you intend to change — `verify_against_prod.sh` will keep reporting
+drift for any you skip, which is the intended signal, not a failure.
 
 ## 📝 File Explanations
 
@@ -361,10 +355,10 @@ copy — update and deploy each one you intend to change.
 - Settings for batch sizes, directories, email recipients, PO sync toggles
 - `config.json` is deployed with the code and contains no secrets
 
-> Both function directories carry their own `utils.py`, `config.py`,
-> `salesforce_connector.py` and `config.json`, mirroring their separate
-> deployments. They are not currently identical — see the note under Project
-> Structure.
+> `utils.py`, `config.py` and `salesforce_connector.py` live once in
+> `functions/_shared/` and are used by both Lambdas — edit them in one place.
+> `config.json` and `requirements.txt` stay per-function, because the two
+> deployments legitimately differ there.
 
 ### Directory Structure
 

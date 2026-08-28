@@ -2,10 +2,11 @@
 #
 # Build and deploy a QuickBooks -> AvSight Lambda from this repo.
 #
-# Each function's source lives in functions/<function-name>/ and is a
-# byte-exact mirror of that function's deployed package. Files are already
-# named as the deployed handler expects (lambda_function.lambda_handler), so
-# the build is a straight copy plus pinned dependencies.
+# A package is assembled from functions/_shared/ (utils.py, config.py,
+# salesforce_connector.py - one canonical copy) plus functions/<function-name>/
+# (its handler and anything specific to it). Files are already named as the
+# deployed handler expects (lambda_function.lambda_handler), so the build is a
+# straight copy plus pinned dependencies.
 #
 # Usage:
 #   scripts/build_and_deploy.sh qb-avsight-sync
@@ -22,19 +23,20 @@ DRY_RUN=""
 [[ "${2:-}" == "--dry-run" ]] && DRY_RUN=1
 
 SRC_DIR="functions/$FUNCTION_NAME"
-if [[ -z "$FUNCTION_NAME" || ! -d "$SRC_DIR" ]]; then
+if [[ -z "$FUNCTION_NAME" || "$FUNCTION_NAME" == "_shared" || ! -d "$SRC_DIR" ]]; then
   echo "usage: $0 <function-name> [--dry-run]" >&2
   echo "available:" >&2
-  ls functions/ | sed 's/^/  /' >&2
+  ls functions/ | grep -v '^_shared$' | sed 's/^/  /' >&2
   exit 2
 fi
 
 BUILD_DIR="$(mktemp -d)"
 trap 'rm -rf "$BUILD_DIR"' EXIT
 
-echo "==> Building $FUNCTION_NAME from $SRC_DIR"
+echo "==> Building $FUNCTION_NAME from $SRC_DIR + functions/_shared"
 
-# Copy first-party sources (everything but the requirements file).
+# Shared modules first, then the function's own files (which win on collision).
+find functions/_shared -maxdepth 1 -type f -exec cp {} "$BUILD_DIR/" \;
 find "$SRC_DIR" -maxdepth 1 -type f ! -name requirements.txt \
   -exec cp {} "$BUILD_DIR/" \;
 

@@ -25,8 +25,17 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 if [[ $# -gt 0 ]]; then
   FUNCTIONS=("$@")
 else
-  mapfile -t FUNCTIONS < <(ls functions/)
+  mapfile -t FUNCTIONS < <(ls functions/ | grep -v '^_shared$')
 fi
+
+# Resolve the source file for a given package filename: the function's own copy
+# wins, then functions/_shared/. Mirrors what build_and_deploy.sh assembles.
+resolve_src() {
+  local fn_dir="$1" name="$2"
+  if [[ -f "$fn_dir/$name" ]]; then echo "$fn_dir/$name"
+  elif [[ -f "functions/_shared/$name" ]]; then echo "functions/_shared/$name"
+  fi
+}
 
 OVERALL=0
 
@@ -53,20 +62,26 @@ for FUNCTION_NAME in "${FUNCTIONS[@]}"; do
   curl -s -o "$WORK_DIR/$FUNCTION_NAME.zip" "$URL"
   unzip -o -q "$WORK_DIR/$FUNCTION_NAME.zip" -d "$EXTRACT"
 
-  # Compare every first-party file tracked in the repo for this function.
+  # Compare every first-party file this function's package is built from:
+  # its own files plus the shared modules.
   DIFFS=0
-  for path in "$SRC_DIR"/*; do
-    f="$(basename "$path")"
-    [[ "$f" == "requirements.txt" ]] && continue
+  mapfile -t NAMES < <(
+    { find "$SRC_DIR" -maxdepth 1 -type f ! -name requirements.txt -printf '%f\n'
+      find functions/_shared -maxdepth 1 -type f -printf '%f\n'; } | sort -u
+  )
+  for f in "${NAMES[@]}"; do
+    src="$(resolve_src "$SRC_DIR" "$f")"
+    label="$f"
+    [[ "$src" == functions/_shared/* ]] && label="$f  (shared)"
     if [[ ! -f "$EXTRACT/$f" ]]; then
-      echo "  MISSING in deployed package: $f"
+      echo "  MISSING in deployed package: $label"
       DIFFS=1
       continue
     fi
-    if cmp -s "$path" "$EXTRACT/$f"; then
-      echo "  ok    $f"
+    if cmp -s "$src" "$EXTRACT/$f"; then
+      echo "  ok    $label"
     else
-      echo "  DIFF  $f"
+      echo "  DIFF  $label"
       DIFFS=1
     fi
   done
@@ -74,7 +89,7 @@ for FUNCTION_NAME in "${FUNCTIONS[@]}"; do
   # Flag first-party files present in prod but absent from the repo. Skips
   # vendored dependencies, which are installed at build time, not tracked.
   while IFS= read -r f; do
-    [[ -f "$SRC_DIR/$f" ]] && continue
+    [[ -n "$(resolve_src "$SRC_DIR" "$f")" ]] && continue
     [[ "$f" == "typing_extensions.py" ]] && continue   # pip-installed module
     echo "  UNTRACKED in repo: $f"
     DIFFS=1
