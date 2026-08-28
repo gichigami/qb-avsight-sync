@@ -34,3 +34,6 @@ Thumbs.db
 response.json
 *.zip
 
+
+# Build output from scripts/build_and_deploy.sh
+build/
