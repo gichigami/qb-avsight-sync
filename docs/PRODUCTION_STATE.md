@@ -16,7 +16,7 @@ non-zero on drift. Keep this file updated when infrastructure changes.
 
 | | `qb-avsight-sync` | `qb-avsight-end-of-day-email` |
 |---|---|---|
-| Source in repo | `functions/qb-avsight-sync/` | `functions/qb-avsight-end-of-day-email/` |
+| Source in repo | `functions/_shared/` + `functions/qb-avsight-sync/` | `functions/_shared/` + `functions/qb-avsight-end-of-day-email/` |
 | Handler | `lambda_function.lambda_handler` | `lambda_function.lambda_handler` |
 | Runtime | python3.11 | python3.11 |
 | Timeout | 900s | 70s |
@@ -25,8 +25,8 @@ non-zero on drift. Keep this file updated when infrastructure changes.
 | Env vars | *(none)* | `S3_BUCKET_NAME=qb-avsight-sync-daily-summaries` |
 | IAM role | `lambda-execution-role` | `service-role/qb-avsight-sync2-role-cmwssj0z` |
 | Log retention | 3 days | 3 days |
-| Code deployed | 2026-08-05 | 2026-03-24 |
-| `CodeSha256` at snapshot | `SEzIvo7h/+I/7QNzn8MYHKieuj97w73h2zsPfr3YjUs=` | `jyAuVyk+XJGkNTUt8eRID+dKoZ2nE/+BiReJjLlFBEs=` |
+| Code deployed | 2026-08-05 | 2026-08-28 |
+| `CodeSha256` at snapshot | `SEzIvo7h/+I/7QNzn8MYHKieuj97w73h2zsPfr3YjUs=` | `WjTUwNfgwjmlrR5iiRDbWuMcI5/NfvYkeFnAqs8M9sk=` |
 
 ### Layers
 
@@ -49,54 +49,44 @@ The main sync package ships: `lambda_function.py`, `quickbooks_connector.py`,
 `salesforce_connector.py`, `utils.py`, `config.py`, `config.json`.
 The end-of-day package ships the same minus `quickbooks_connector.py`.
 
-### Known divergence between the two deployments
+### Shared modules (divergence resolved 2026-08-28)
 
-The functions are deployed independently and are **not** running the same build
-of the shared modules. Each `functions/<name>/` directory mirrors its own
-package, so the repo records this accurately rather than papering over it.
+`utils.py`, `config.py` and `salesforce_connector.py` are now a single copy in
+`functions/_shared/`, used by both Lambdas.
 
-| | `qb-avsight-sync` | `qb-avsight-end-of-day-email` |
-|---|---|---|
-| `utils.py` | 2026-08-05 build | 2026-03-24 build |
-| `config.py` | has PO sync accessors | no PO sync accessors |
-| `salesforce_connector.py` | identical | identical |
-| `attrs` | 25.4.0 | 26.1.0 |
-| `charset-normalizer` | 3.4.5 | 3.4.6 |
+They had drifted apart through deployment lag, not intent: shared source was
+edited, `qb-avsight-sync` was deployed 2026-08-05, and
+`qb-avsight-end-of-day-email` was left on its 2026-03-24 build. The EOD copy was
+a strict ancestor — it contained nothing the sync's lacked.
 
-### Why they differ
-
-Deployment lag, not intent. `utils.py` is shared source; someone edited it,
-deployed `qb-avsight-sync` (2026-08-05), and never redeployed
-`qb-avsight-end-of-day-email` (last pushed 2026-03-24). The EOD copy is a
-strict ancestor of the sync's — it contains nothing the sync lacks.
-
-### Behavioural impact: none on the EOD function
-
-Compared at AST level (which normalises whitespace, comments, and `—` vs
-`—` escaping), exactly three functions differ in executable code, plus one
-added function:
+Collapsing them was verified safe before deploying. Compared at AST level
+(normalising whitespace, comments and `—` vs `—` escaping), only three
+functions differed in executable code, plus one addition:
 
 | Function | Difference | Reachable from EOD? |
 |---|---|---|
 | `find_order_number` | sync dropped the loose `\b\d{5,}\b` bare-number pattern | no |
-| `format_timestamp_to_time` | sync renders 24h (`%H:%M`) instead of 12h (`%I:%M %p`) | no |
-| `send_email_summary` | sync adds `po_sync_results`, switches template rows from tuples to dicts, prints a traceback on failure | no |
+| `format_timestamp_to_time` | sync renders 24h (`%H:%M`) not 12h (`%I:%M %p`) | no |
+| `send_email_summary` | sync adds `po_sync_results`, tuple→dict template rows, traceback on failure | no |
 | `send_auth_failure_alert` | added in the sync build only | no |
 
-The EOD handler imports just `get_secret`, `send_end_of_day_email`,
-`get_s3_bucket_name` and `debug_print`. Walking the call graph transitively
-from those gives `{get_secret, send_end_of_day_email, get_s3_bucket_name,
-debug_print, get_daily_summary_from_s3}` — and **none of the differing
-functions appear in it**. `send_end_of_day_email` itself is identical once
-docstring whitespace is ignored. Module-level imports and constants are
-identical in both copies, and the sync's `config.py` is a strict superset.
+The EOD handler imports only `get_secret`, `send_end_of_day_email`,
+`get_s3_bucket_name` and `debug_print`; the transitive call graph from those
+reaches `{get_secret, send_end_of_day_email, get_s3_bucket_name, debug_print,
+get_daily_summary_from_s3}` and contains none of the differing functions.
+`send_end_of_day_email` itself is identical apart from docstring whitespace, so
+its `qb_eod_summary` call is unchanged. Module-level imports and constants
+matched; `salesforce_connector.py` was already byte-identical.
 
-Consequence: the older EOD build is not a live defect, **and** swapping in the
-sync's `utils.py` would be behaviourally inert for this function — the two are
-interchangeable from EOD's perspective. (An earlier revision of this file
-claimed such a swap "would be a behaviour change, not a no-op"; that was wrong,
-and it also mislabelled `send_auth_failure_alert` as a difference rather than an
-addition.)
+`qb-avsight-end-of-day-email` was then redeployed from the shared modules
+(2026-08-28, `WjTUwNfgwjmlrR5iiRDbWuMcI5/NfvYkeFnAqs8M9sk=`) and probed with a
+date having no S3 summary, which exercises a cold-start import and the secrets,
+config and S3 paths, then returns before sending any email. It imported and ran
+cleanly under `pioneer-email:8`.
+
+`config.json` and `requirements.txt` remain per-function: the deployments
+legitimately differ there (PO-sync settings; `attrs` 25.4.0 vs 26.1.0,
+`charset-normalizer` 3.4.5 vs 3.4.6).
 
 ## Schedules (EventBridge)
 
