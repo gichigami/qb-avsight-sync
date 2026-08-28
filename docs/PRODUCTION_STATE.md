@@ -63,11 +63,40 @@ package, so the repo records this accurately rather than papering over it.
 | `attrs` | 25.4.0 | 26.1.0 |
 | `charset-normalizer` | 3.4.5 | 3.4.6 |
 
-The `utils.py` gap is confined to code the EOD handler never calls
-(`send_auth_failure_alert`, `send_email_summary`, `format_timestamp_to_time`),
-so the older build is not a live defect — but redeploying EOD from the main
-function's `utils.py` would be a behaviour change, not a no-op. Reconcile
-deliberately, not incidentally.
+### Why they differ
+
+Deployment lag, not intent. `utils.py` is shared source; someone edited it,
+deployed `qb-avsight-sync` (2026-08-05), and never redeployed
+`qb-avsight-end-of-day-email` (last pushed 2026-03-24). The EOD copy is a
+strict ancestor of the sync's — it contains nothing the sync lacks.
+
+### Behavioural impact: none on the EOD function
+
+Compared at AST level (which normalises whitespace, comments, and `—` vs
+`—` escaping), exactly three functions differ in executable code, plus one
+added function:
+
+| Function | Difference | Reachable from EOD? |
+|---|---|---|
+| `find_order_number` | sync dropped the loose `\b\d{5,}\b` bare-number pattern | no |
+| `format_timestamp_to_time` | sync renders 24h (`%H:%M`) instead of 12h (`%I:%M %p`) | no |
+| `send_email_summary` | sync adds `po_sync_results`, switches template rows from tuples to dicts, prints a traceback on failure | no |
+| `send_auth_failure_alert` | added in the sync build only | no |
+
+The EOD handler imports just `get_secret`, `send_end_of_day_email`,
+`get_s3_bucket_name` and `debug_print`. Walking the call graph transitively
+from those gives `{get_secret, send_end_of_day_email, get_s3_bucket_name,
+debug_print, get_daily_summary_from_s3}` — and **none of the differing
+functions appear in it**. `send_end_of_day_email` itself is identical once
+docstring whitespace is ignored. Module-level imports and constants are
+identical in both copies, and the sync's `config.py` is a strict superset.
+
+Consequence: the older EOD build is not a live defect, **and** swapping in the
+sync's `utils.py` would be behaviourally inert for this function — the two are
+interchangeable from EOD's perspective. (An earlier revision of this file
+claimed such a swap "would be a behaviour change, not a no-op"; that was wrong,
+and it also mislabelled `send_auth_failure_alert` as a difference rather than an
+addition.)
 
 ## Schedules (EventBridge)
 
