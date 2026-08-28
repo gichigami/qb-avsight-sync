@@ -13,30 +13,61 @@ This Lambda function:
 
 ## 📁 Project Structure
 
+One directory per deployed Lambda, each a **byte-exact mirror of that
+function's deployed package**:
+
 ```
 QBsync/
-├── qb-avsight-sync.py              # Main Lambda handler   -> qb-avsight-sync
-├── end_of_day_email.py             # EOD email handler     -> qb-avsight-end-of-day-email
-├── quickbooks_connector.py         # QuickBooks API client (main sync only)
-├── salesforce_connector.py         # Salesforce API client
-├── utils.py                        # Helper functions (email, secrets, S3)
-├── config.py                       # Configuration accessors
-├── config.json                     # Runtime configuration (deployed; no secrets)
-├── requirements.txt                # Pinned to production versions
-├── scripts/build_and_deploy.sh     # Build + deploy either function
-├── docs/PRODUCTION_STATE.md        # Deployed AWS resources (source of truth)
-└── README.md                       # This file
+├── functions/
+│   ├── qb-avsight-sync/                 # -> Lambda: qb-avsight-sync
+│   │   ├── lambda_function.py           #    main sync handler
+│   │   ├── quickbooks_connector.py      #    QuickBooks API client
+│   │   ├── salesforce_connector.py
+│   │   ├── utils.py
+│   │   ├── config.py
+│   │   ├── config.json                  #    runtime config (no secrets)
+│   │   └── requirements.txt             #    pinned to this package's versions
+│   └── qb-avsight-end-of-day-email/     # -> Lambda: qb-avsight-end-of-day-email
+│       ├── lambda_function.py           #    EOD email handler
+│       ├── salesforce_connector.py      #    (no quickbooks_connector: unused)
+│       ├── utils.py
+│       ├── config.py
+│       ├── config.json
+│       └── requirements.txt
+├── scripts/
+│   ├── build_and_deploy.sh              # build + deploy one function
+│   └── verify_against_prod.sh           # assert repo == deployed code
+├── docs/PRODUCTION_STATE.md             # deployed AWS resources
+└── README.md
 ```
 
-> **Handler naming:** both Lambdas are configured with the handler
-> `lambda_function.lambda_handler`. The build script renames the descriptive
-> source file to `lambda_function.py` inside the deployment package, so
-> `qb-avsight-sync.py` and `end_of_day_email.py` are never both in one zip.
+> **Why the modules are duplicated rather than shared.** The two Lambdas are
+> deployed independently and are currently running *different builds* of
+> `utils.py`, `config.py`, and even different dependency versions (`attrs`
+> 25.4.0 vs 26.1.0). A single shared copy could not represent that without
+> misstating what one of them actually runs. Each directory therefore mirrors
+> its own package exactly.
+>
+> This is a deliberate trade: editing shared behavior means editing both
+> copies. Run `scripts/verify_against_prod.sh` after any change — it fails on
+> drift. If the two are ever deployed from the same build, collapsing them
+> back into a shared module is a reasonable follow-up.
 
-> **This repo is the source of truth.** It was reconciled against the live
-> Lambda packages on 2026-08-28. Deploy only via `scripts/build_and_deploy.sh`
-> so the two never drift again; see `docs/PRODUCTION_STATE.md` for the full
+> **This repo is the source of truth**, reconciled against the live packages on
+> 2026-08-28 and verified byte-for-byte. Deploy only via
+> `scripts/build_and_deploy.sh`; see `docs/PRODUCTION_STATE.md` for the full
 > deployed configuration.
+
+### Checking the repo still matches production
+
+```bash
+scripts/verify_against_prod.sh                    # all functions
+scripts/verify_against_prod.sh qb-avsight-sync    # just one
+```
+
+Downloads each live package and diffs every first-party file, exiting non-zero
+on drift. Dependency-version differences are reported as warnings, not
+failures — they shift on any rebuild and are not source drift.
 
 ## 🚀 Setup Instructions
 
@@ -94,14 +125,14 @@ aws secretsmanager create-secret \
 
 ### 3. Package and Deploy
 
-Use the build script — it assembles the correct module set per function, pins
-dependencies to the versions running in production, renames the handler, and
-excludes the packages provided by Lambda layers:
+Use the build script — it packages one function directory, installs that
+function's pinned dependencies, and excludes the packages supplied by Lambda
+layers:
 
 ```bash
-scripts/build_and_deploy.sh sync            # deploy qb-avsight-sync
-scripts/build_and_deploy.sh eod             # deploy qb-avsight-end-of-day-email
-scripts/build_and_deploy.sh sync --dry-run  # build the zip only
+scripts/build_and_deploy.sh qb-avsight-sync
+scripts/build_and_deploy.sh qb-avsight-end-of-day-email
+scripts/build_and_deploy.sh qb-avsight-sync --dry-run   # build the zip only
 ```
 
 **Lambda layers supply `pandas`/`boto3` (`AWSSDKPandas-Python311`) and
@@ -286,34 +317,29 @@ Key metrics to monitor in CloudWatch:
 Commit the change, then deploy from the repo:
 
 ```bash
-scripts/build_and_deploy.sh sync   # or: eod
+scripts/build_and_deploy.sh qb-avsight-sync   # or qb-avsight-end-of-day-email
+scripts/verify_against_prod.sh                # confirm they now match
 ```
 
-To confirm the deployed code matches this repo, compare the handler in the live
-package against the source:
-
-```bash
-aws lambda get-function --function-name qb-avsight-sync \
-    --query 'Code.Location' --output text \
-  | xargs curl -s -o /tmp/live.zip
-unzip -p /tmp/live.zip lambda_function.py | diff - qb-avsight-sync.py && echo "in sync"
-```
+If a change touches shared behaviour (`utils.py`, `config.py`,
+`salesforce_connector.py`), remember both function directories carry their own
+copy — update and deploy each one you intend to change.
 
 ## 📝 File Explanations
 
 ### Core Files (Deployed to Lambda)
 
-**qb-avsight-sync.py**
-- Main entry point for Lambda sync function
+**functions/qb-avsight-sync/lambda_function.py**
+- Main entry point for the sync function
 - Contains sync orchestration logic
-- Handles EventBridge triggers
+- Reads `sync_mode` (`incremental` / `full`) from the EventBridge payload
 
-**end_of_day_email.py**
+**functions/qb-avsight-end-of-day-email/lambda_function.py**
 - End-of-day email Lambda handler
 - Sends daily summary emails
-- Aggregates daily sync results
+- Aggregates the day's sync results from S3
 
-**quickbooks_connector.py**
+**quickbooks_connector.py** *(main sync only)*
 - QuickBooks API client
 - OAuth token management
 - Query execution
@@ -335,16 +361,25 @@ unzip -p /tmp/live.zip lambda_function.py | diff - qb-avsight-sync.py && echo "i
 - Settings for batch sizes, directories, email recipients, PO sync toggles
 - `config.json` is deployed with the code and contains no secrets
 
+> Both function directories carry their own `utils.py`, `config.py`,
+> `salesforce_connector.py` and `config.json`, mirroring their separate
+> deployments. They are not currently identical — see the note under Project
+> Structure.
+
 ### Directory Structure
 
-- `scripts/` - Build and deploy tooling
+- `functions/` - One directory per deployed Lambda; the source of truth
+- `scripts/` - Build, deploy, and prod-verification tooling
 - `docs/` - Documentation; `PRODUCTION_STATE.md` records the deployed AWS resources
 - `archive/` - Test scripts, helper utilities, and backup files
-- `deploy_packages/` - **Stale.** Vendored copies of an older build, kept from
-  before this repo was reconciled with production. They are *not* the source of
-  truth and contain outdated copies of `lambda_function.py` / `utils.py`. Build
-  from the repo root via `scripts/build_and_deploy.sh` instead.
-- `website/` - Static site for the separate `airbridge-contact-form` automation
+- `deploy_packages/contact_form_function/` - Source for the **separate**
+  `airbridge-contact-form` Lambda, unrelated to the QB sync. Kept because this
+  is its only copy; it has not been verified against its deployed package.
+- `website/` - Static site paired with `airbridge-contact-form`
+
+The stale `deploy_packages/{main,full_sync,email}_function/` trees, which held
+outdated vendored copies of the sync code, were removed once `functions/` became
+authoritative. They remain in git history at commit `c7243ed`.
 
 ## 🤝 Support
 

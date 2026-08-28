@@ -1,0 +1,8 @@
+{
+  "salesforce_batch_size": 100,
+  "results_directory": "/tmp",
+  "email_recipients_daily_summary": [
+    "gjohnson@pioneer-aero.com"
+  ],
+  "s3_bucket_name": "qb-avsight-sync-daily-summaries"
+}

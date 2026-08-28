@@ -89,230 +89,54 @@ pip install -r requirements.txt
 
 ### Current Deployed Functions
 
+Verified against AWS on 2026-08-28.
+
 | Function Name | Runtime | Handler | Memory | Timeout | Purpose |
 |--------------|---------|---------|--------|---------|---------|
-| `qb-avsight-sync` | python3.11 | `qb-avsight-sync.lambda_handler` | 1024 MB | 900s | Full sync (all records) |
-| `qb-avsight-sync2` | python3.11 | `qb-avsight-sync.lambda_handler` | 1024 MB | 900s | Incremental sync (scheduled) |
-| `qb-avsight-end-of-day-email` | python3.11 | `end_of_day_email.lambda_handler` | 256 MB | 70s | Daily summary email |
+| `qb-avsight-sync` | python3.11 | `lambda_function.lambda_handler` | 1024 MB | 900s | Both incremental and full sync; mode comes from the event payload |
+| `qb-avsight-end-of-day-email` | python3.11 | `lambda_function.lambda_handler` | 256 MB | 70s | Daily summary email |
 | `airbridge-contact-form` | python3.11 | `lambda_function.lambda_handler` | 128 MB | 30s | Website contact form handler |
+| `qb-avsight-sync2` | python3.11 | `lambda_function.lambda_handler` | 1024 MB | 900s | **Obsolete.** Described in AWS as "formerly handled full sync"; no schedule targets it |
 
 ### EventBridge Schedules
 
-| Rule Name | Schedule | Target Function | Description |
-|-----------|----------|----------------|-------------|
-| `qb-avsight-sync-schedule` | `cron(*/15 14-23 * * ? *)` | `qb-avsight-sync2` | Runs every 15 minutes from 14:00-23:00 UTC (8 AM-5 PM CST / 9 AM-6 PM CDT) |
-| `qb-avsight-sync-full-schedule` | `cron(50 13 * * ? *)` | `qb-avsight-sync` | Runs daily at 13:50 UTC (7:50 AM CST / 8:50 AM CDT) |
-| `qb-avsight-end-of-day-email` | `cron(2 23 * * ? *)` | `qb-avsight-end-of-day-email` | Runs daily at 23:02 UTC (5:02 PM CST / 6:02 PM CDT) |
+Both sync rules target the **same** function and select behaviour via the event
+payload — there is no longer a separate full-sync function.
+
+| Rule Name | Schedule | Target Function | Input | Description |
+|-----------|----------|----------------|-------|-------------|
+| `qb-avsight-sync-schedule` | `cron(*/15 14-23 * * ? *)` | `qb-avsight-sync` | `{"sync_mode": "incremental"}` | Every 15 minutes, 14:00-23:00 UTC (8 AM-5 PM CST / 9 AM-6 PM CDT) |
+| `qb-avsight-sync-full-schedule` | `cron(50 13 * * ? *)` | `qb-avsight-sync` | `{"sync_mode": "full"}` | Daily at 13:50 UTC (7:50 AM CST / 8:50 AM CDT) |
+| `qb-avsight-end-of-day-email` | `cron(2 23 * * ? *)` | `qb-avsight-end-of-day-email` | *(none)* | Daily at 23:02 UTC (5:02 PM CST / 6:02 PM CDT) |
 
 ---
 
 ## Deployment Procedures
 
-### Function 1: qb-avsight-sync2 (Incremental Sync)
+> **Superseded for the QuickBooks sync functions.** The manual packaging steps
+> that used to live here described `deploy_packages/{main,full_sync,email}_function/`,
+> which no longer exist, and treated full sync as a separate Lambda, which it
+> is not. Deploy from `functions/<function-name>/` with the build script:
+>
+> ```bash
+> scripts/build_and_deploy.sh qb-avsight-sync
+> scripts/build_and_deploy.sh qb-avsight-end-of-day-email
+> scripts/build_and_deploy.sh qb-avsight-sync --dry-run   # build only
+>
+> scripts/verify_against_prod.sh   # confirm repo matches deployed code
+> ```
+>
+> The script installs each function's pinned dependencies, excludes the
+> packages supplied by the `AWSSDKPandas-Python311` and `pioneer-email` layers,
+> and uploads via `aws lambda update-function-code`. See the repository README
+> and `docs/PRODUCTION_STATE.md`. The original manual steps remain in git
+> history at commit `c7243ed`.
 
-**Purpose**: Main sync function that runs frequently to sync incremental changes.
+The contact-form function below is a separate automation and is still deployed
+by hand.
 
-**Deployment Steps**:
 
-#### 1. Prepare Deployment Package
-
-```bash
-cd /Users/garrettjohnson/Desktop/Development/qb-avsight-sync2
-
-# Navigate to main function directory
-cd deploy_packages/main_function
-
-# Create deployment package
-# Note: pandas and boto3 are provided by AWS Lambda layer (AWSSDKPandas-Python311)
-# Only package requests, simple-salesforce, and their dependencies
-
-# Create a clean package directory
-mkdir -p package
-cd package
-
-# Copy source files
-cp ../../qb-avsight-sync.py .
-cp ../../quickbooks_connector.py .
-cp ../../salesforce_connector.py .
-cp ../../utils.py .
-cp ../../config.py .
-cp ../../config.json .
-
-# Install only required dependencies (pandas/boto3 come from Lambda layer)
-pip install requests simple-salesforce -t . --platform manylinux2014_x86_64 --only-binary=:all:
-
-# Create ZIP file
-zip -r qb-avsight-sync2.zip . -x "*.pyc" "__pycache__/*" "*.dist-info/*"
-
-# Move ZIP to deploy_packages directory
-mv qb-avsight-sync2.zip ../../../
-cd ../../..
-```
-
-#### 2. Deploy Function
-
-**Option A: Create New Function**
-
-```bash
-aws lambda create-function \
-    --function-name qb-avsight-sync2 \
-    --runtime python3.11 \
-    --role arn:aws:iam::904198142431:role/service-role/qb-avsight-sync2-role-cmwssj0z \
-    --handler qb-avsight-sync.lambda_handler \
-    --zip-file fileb://deploy_packages/qb-avsight-sync2.zip \
-    --timeout 900 \
-    --memory-size 1024 \
-    --environment Variables='{"S3_BUCKET_NAME":"qb-avsight-sync-daily-summaries"}' \
-    --layers arn:aws:lambda:us-east-1:336392948345:layer:AWSSDKPandas-Python311:7
-```
-
-**Option B: Update Existing Function**
-
-```bash
-# Update function code
-aws lambda update-function-code \
-    --function-name qb-avsight-sync2 \
-    --zip-file fileb://deploy_packages/qb-avsight-sync2.zip
-
-# Update environment variables (if needed)
-aws lambda update-function-configuration \
-    --function-name qb-avsight-sync2 \
-    --environment Variables='{"S3_BUCKET_NAME":"qb-avsight-sync-daily-summaries"}'
-
-# Update timeout/memory (if needed)
-aws lambda update-function-configuration \
-    --function-name qb-avsight-sync2 \
-    --timeout 900 \
-    --memory-size 1024
-```
-
-#### 3. Verify Deployment
-
-```bash
-# Check function configuration
-aws lambda get-function-configuration --function-name qb-avsight-sync2
-
-# Test invocation
-aws lambda invoke \
-    --function-name qb-avsight-sync2 \
-    --payload '{}' \
-    response.json
-
-# View response
-cat response.json
-```
-
----
-
-### Function 2: qb-avsight-sync (Full Sync)
-
-**Purpose**: Full sync function that processes all records (runs less frequently).
-
-**Deployment Steps**:
-
-#### 1. Prepare Deployment Package
-
-```bash
-cd /Users/garrettjohnson/Desktop/Development/qb-avsight-sync2
-
-# Navigate to full sync function directory
-cd deploy_packages/full_sync_function
-
-# Create deployment package (same process as sync2)
-mkdir -p package
-cd package
-
-# Copy source files
-cp ../qb-avsight-sync.py .
-cp ../quickbooks_connector.py .
-cp ../salesforce_connector.py .
-cp ../utils.py .
-cp ../config.py .
-cp ../config.json .
-
-# Install dependencies
-pip install requests simple-salesforce -t . --platform manylinux2014_x86_64 --only-binary=:all:
-
-# Create ZIP file
-zip -r qb-avsight-sync-full.zip . -x "*.pyc" "__pycache__/*" "*.dist-info/*"
-
-# Move ZIP to deploy_packages directory
-mv qb-avsight-sync-full.zip ../../../
-cd ../../..
-```
-
-#### 2. Deploy Function
-
-```bash
-# Update function code
-aws lambda update-function-code \
-    --function-name qb-avsight-sync \
-    --zip-file fileb://deploy_packages/qb-avsight-sync-full.zip
-
-# Verify
-aws lambda get-function-configuration --function-name qb-avsight-sync
-```
-
----
-
-### Function 3: qb-avsight-end-of-day-email
-
-**Purpose**: Sends daily summary email with all sync changes.
-
-**Deployment Steps**:
-
-#### 1. Prepare Deployment Package
-
-```bash
-cd /Users/garrettjohnson/Desktop/Development/qb-avsight-sync2
-
-# Navigate to email function directory
-cd deploy_packages/email_function
-
-# Create deployment package
-mkdir -p package
-cd package
-
-# Copy source files
-cp ../end_of_day_email.py .
-cp ../../utils.py .
-cp ../../config.py .
-cp ../../config.json .
-
-# Install dependencies (boto3 is in Lambda layer, but we need it for local testing)
-# For Lambda, boto3 is provided by the runtime
-pip install boto3 -t . --platform manylinux2014_x86_64 --only-binary=:all:
-
-# Create ZIP file
-zip -r qb-avsight-end-of-day-email.zip . -x "*.pyc" "__pycache__/*" "*.dist-info/*"
-
-# Move ZIP
-mv qb-avsight-end-of-day-email.zip ../../../
-cd ../../..
-```
-
-#### 2. Deploy Function
-
-```bash
-# Update function code
-aws lambda update-function-code \
-    --function-name qb-avsight-end-of-day-email \
-    --zip-file fileb://deploy_packages/qb-avsight-end-of-day-email.zip
-
-# Update configuration (if needed)
-aws lambda update-function-configuration \
-    --function-name qb-avsight-end-of-day-email \
-    --timeout 70 \
-    --memory-size 256 \
-    --environment Variables='{"S3_BUCKET_NAME":"qb-avsight-sync-daily-summaries"}'
-
-# Verify
-aws lambda get-function-configuration --function-name qb-avsight-end-of-day-email
-```
-
----
-
-### Function 4: airbridge-contact-form
+### airbridge-contact-form (deployed manually)
 
 **Purpose**: Handles contact form submissions from the website.
 
@@ -365,7 +189,11 @@ aws lambda get-function-configuration --function-name airbridge-contact-form
 
 ### config.json
 
-The `config.json` file contains non-sensitive configuration that is packaged with each Lambda function:
+`config.json` contains non-sensitive configuration packaged with each Lambda.
+**Each function has its own copy** at `functions/<function-name>/config.json`,
+matching what is actually deployed — they are not identical.
+
+`functions/qb-avsight-sync/config.json`:
 
 ```json
 {
@@ -380,20 +208,28 @@ The `config.json` file contains non-sensitive configuration that is packaged wit
   "email_recipients_daily_summary": [
     "gjohnson@pioneer-aero.com"
   ],
-  "s3_bucket_name": "qb-avsight-sync-daily-summaries"
+  "s3_bucket_name": "qb-avsight-sync-daily-summaries",
+  "po_sync_enabled": true,
+  "po_sync_batch_size": 200
 }
 ```
 
+`functions/qb-avsight-end-of-day-email/config.json` carries a subset:
+`salesforce_batch_size`, `results_directory`, `email_recipients_daily_summary`,
+`s3_bucket_name`.
+
 **To update configuration**:
-1. Edit `config.json` in the project root
-2. Recreate deployment packages (they copy config.json)
-3. Redeploy affected functions
+1. Edit `config.json` in the relevant function directory
+2. Redeploy that function with `scripts/build_and_deploy.sh <function-name>`
+3. Run `scripts/verify_against_prod.sh` to confirm the change landed
 
 ### Environment Variables
 
 Some configuration is set via Lambda environment variables:
 
-- `S3_BUCKET_NAME`: S3 bucket for daily summaries (set in `qb-avsight-sync2` and `qb-avsight-end-of-day-email`)
+- `S3_BUCKET_NAME`: S3 bucket for daily summaries. Set only on
+  `qb-avsight-end-of-day-email`; `qb-avsight-sync` has **no** environment
+  variables and reads the bucket from its `config.json`.
 
 **To update environment variables**:
 

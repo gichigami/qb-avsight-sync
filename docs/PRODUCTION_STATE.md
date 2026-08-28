@@ -4,8 +4,10 @@ Snapshot of the deployed AWS resources for the QuickBooks → AvSight automation
 captured **2026-08-28** by reading the live Lambda packages and configuration
 (`aws lambda get-function`, `aws events list-targets-by-rule`).
 
-The code in this repo was synced to match these deployed packages byte-for-byte.
-Keep this file updated when infrastructure changes.
+The code in this repo was synced to match these deployed packages byte-for-byte
+and **verified** with `scripts/verify_against_prod.sh`, which re-downloads the
+live packages and diffs every first-party file. Re-run it any time; it exits
+non-zero on drift. Keep this file updated when infrastructure changes.
 
 - **AWS account:** `904198142431`
 - **Region:** `us-east-1`
@@ -14,7 +16,7 @@ Keep this file updated when infrastructure changes.
 
 | | `qb-avsight-sync` | `qb-avsight-end-of-day-email` |
 |---|---|---|
-| Source in repo | `qb-avsight-sync.py` | `end_of_day_email.py` |
+| Source in repo | `functions/qb-avsight-sync/` | `functions/qb-avsight-end-of-day-email/` |
 | Handler | `lambda_function.lambda_handler` | `lambda_function.lambda_handler` |
 | Runtime | python3.11 | python3.11 |
 | Timeout | 900s | 70s |
@@ -46,6 +48,26 @@ from the internal `pioneer-email` layer. **Neither is vendored into this repo** 
 The main sync package ships: `lambda_function.py`, `quickbooks_connector.py`,
 `salesforce_connector.py`, `utils.py`, `config.py`, `config.json`.
 The end-of-day package ships the same minus `quickbooks_connector.py`.
+
+### Known divergence between the two deployments
+
+The functions are deployed independently and are **not** running the same build
+of the shared modules. Each `functions/<name>/` directory mirrors its own
+package, so the repo records this accurately rather than papering over it.
+
+| | `qb-avsight-sync` | `qb-avsight-end-of-day-email` |
+|---|---|---|
+| `utils.py` | 2026-08-05 build | 2026-03-24 build |
+| `config.py` | has PO sync accessors | no PO sync accessors |
+| `salesforce_connector.py` | identical | identical |
+| `attrs` | 25.4.0 | 26.1.0 |
+| `charset-normalizer` | 3.4.5 | 3.4.6 |
+
+The `utils.py` gap is confined to code the EOD handler never calls
+(`send_auth_failure_alert`, `send_email_summary`, `format_timestamp_to_time`),
+so the older build is not a live defect — but redeploying EOD from the main
+function's `utils.py` would be a behaviour change, not a no-op. Reconcile
+deliberately, not incidentally.
 
 ## Schedules (EventBridge)
 

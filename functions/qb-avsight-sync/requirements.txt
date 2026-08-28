@@ -1,0 +1,30 @@
+# Dependencies for the qb-avsight-sync Lambda.
+#
+# Pinned to the versions present in the deployed package, read from its
+# .dist-info metadata on 2026-08-28. These versions are per-function and
+# intentionally differ between the two Lambdas where production differs.
+#
+# NOT packaged - supplied by Lambda layers, do not vendor:
+#   pandas, numpy, boto3, botocore -> AWSSDKPandas-Python311
+#   pioneer_email                  -> pioneer-email
+
+attrs==25.4.0
+certifi==2026.2.25
+cffi==2.0.0
+charset-normalizer==3.4.5
+cryptography==46.0.5
+idna==3.11
+isodate==0.7.2
+lxml==6.0.2
+more-itertools==10.8.0
+platformdirs==4.9.4
+pycparser==3.0
+pyjwt==2.12.1
+pytz==2026.1.post1
+requests==2.32.5
+requests-file==3.0.1
+requests-toolbelt==1.0.0
+simple-salesforce==1.12.9
+typing-extensions==4.15.0
+urllib3==2.6.3
+zeep==4.3.2

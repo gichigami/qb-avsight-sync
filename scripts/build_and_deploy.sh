@@ -1,57 +1,46 @@
 #!/usr/bin/env bash
 #
-# Build and deploy the QuickBooks -> AvSight sync Lambdas from this repo.
+# Build and deploy a QuickBooks -> AvSight Lambda from this repo.
 #
-# This repo is the source of truth for these functions. Both deployed Lambdas
-# use the handler `lambda_function.lambda_handler`, so the descriptive source
-# filename is renamed to lambda_function.py inside the package.
+# Each function's source lives in functions/<function-name>/ and is a
+# byte-exact mirror of that function's deployed package. Files are already
+# named as the deployed handler expects (lambda_function.lambda_handler), so
+# the build is a straight copy plus pinned dependencies.
 #
 # Usage:
-#   scripts/build_and_deploy.sh sync           # build + deploy qb-avsight-sync
-#   scripts/build_and_deploy.sh eod            # build + deploy end-of-day email
-#   scripts/build_and_deploy.sh sync --dry-run # build the zip, don't upload
+#   scripts/build_and_deploy.sh qb-avsight-sync
+#   scripts/build_and_deploy.sh qb-avsight-end-of-day-email
+#   scripts/build_and_deploy.sh qb-avsight-sync --dry-run
 #
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-TARGET="${1:-}"
+FUNCTION_NAME="${1:-}"
 DRY_RUN=""
 [[ "${2:-}" == "--dry-run" ]] && DRY_RUN=1
 
-case "$TARGET" in
-  sync)
-    FUNCTION_NAME="qb-avsight-sync"
-    HANDLER_SRC="qb-avsight-sync.py"
-    # quickbooks_connector is only used by the main sync function.
-    MODULES=(quickbooks_connector.py salesforce_connector.py utils.py config.py config.json)
-    ;;
-  eod)
-    FUNCTION_NAME="qb-avsight-end-of-day-email"
-    HANDLER_SRC="end_of_day_email.py"
-    MODULES=(salesforce_connector.py utils.py config.py config.json)
-    ;;
-  *)
-    echo "usage: $0 {sync|eod} [--dry-run]" >&2
-    exit 2
-    ;;
-esac
+SRC_DIR="functions/$FUNCTION_NAME"
+if [[ -z "$FUNCTION_NAME" || ! -d "$SRC_DIR" ]]; then
+  echo "usage: $0 <function-name> [--dry-run]" >&2
+  echo "available:" >&2
+  ls functions/ | sed 's/^/  /' >&2
+  exit 2
+fi
 
 BUILD_DIR="$(mktemp -d)"
 trap 'rm -rf "$BUILD_DIR"' EXIT
 
-echo "==> Building $FUNCTION_NAME from $HANDLER_SRC"
+echo "==> Building $FUNCTION_NAME from $SRC_DIR"
 
-# Lambda's configured handler is lambda_function.lambda_handler.
-cp "$HANDLER_SRC" "$BUILD_DIR/lambda_function.py"
-for m in "${MODULES[@]}"; do
-  cp "$m" "$BUILD_DIR/$m"
-done
+# Copy first-party sources (everything but the requirements file).
+find "$SRC_DIR" -maxdepth 1 -type f ! -name requirements.txt \
+  -exec cp {} "$BUILD_DIR/" \;
 
 echo "==> Installing pinned dependencies"
-# --only-binary=:all: keeps manylinux wheels so compiled deps (cryptography,
-# cffi, lxml) match the Lambda runtime rather than the local machine.
+# manylinux wheels so compiled deps (cryptography, cffi, lxml) match the
+# Lambda runtime rather than the build machine.
 pip install \
   --quiet \
   --target "$BUILD_DIR" \
@@ -59,9 +48,9 @@ pip install \
   --python-version 3.11 \
   --only-binary=:all: \
   --implementation cp \
-  -r requirements.txt
+  -r "$SRC_DIR/requirements.txt"
 
-# pandas/boto3 come from the AWSSDKPandas layer; pioneer_email from the
+# pandas/boto3 come from the AWSSDKPandas layer, pioneer_email from the
 # pioneer-email layer. Drop them if a transitive dep pulled them in.
 rm -rf "$BUILD_DIR"/{pandas,numpy,boto3,botocore,pioneer_email}
 rm -rf "$BUILD_DIR"/{pandas,numpy,boto3,botocore}-*.dist-info
@@ -85,4 +74,5 @@ aws lambda update-function-code \
   --query '{Function:FunctionName,Sha:CodeSha256,Size:CodeSize,Modified:LastModified}'
 
 echo "==> Done. Verify with:"
+echo "    scripts/verify_against_prod.sh"
 echo "    aws logs tail /aws/lambda/$FUNCTION_NAME --follow"
