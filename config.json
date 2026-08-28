@@ -1,0 +1,16 @@
+{
+  "salesforce_batch_size": 100,
+  "results_directory": "/tmp",
+  "qb_redirect_uri": "https://developer.intuit.com/v2/OAuth2Playground/RedirectUrl",
+  "qb_max_results_per_page": 100,
+  "enable_incremental_sync": true,
+  "email_recipients_run_summary": [
+    "gjohnson@pioneer-aero.com"
+  ],
+  "email_recipients_daily_summary": [
+    "gjohnson@pioneer-aero.com"
+  ],
+  "s3_bucket_name": "qb-avsight-sync-daily-summaries",
+  "po_sync_enabled": true,
+  "po_sync_batch_size": 200
+}

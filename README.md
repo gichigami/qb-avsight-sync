@@ -15,16 +15,28 @@ This Lambda function:
 
 ```
 QBsync/
-├── qb-avsight-sync.py              # Main Lambda handler
-├── end_of_day_email.py             # End-of-day email Lambda handler
-├── quickbooks_connector.py         # QuickBooks API client
+├── qb-avsight-sync.py              # Main Lambda handler   -> qb-avsight-sync
+├── end_of_day_email.py             # EOD email handler     -> qb-avsight-end-of-day-email
+├── quickbooks_connector.py         # QuickBooks API client (main sync only)
 ├── salesforce_connector.py         # Salesforce API client
-├── utils.py                        # Helper functions (email, secrets)
-├── config.py                       # Configuration management
-├── config.json                     # Configuration file
-├── requirements.txt                # Python dependencies
+├── utils.py                        # Helper functions (email, secrets, S3)
+├── config.py                       # Configuration accessors
+├── config.json                     # Runtime configuration (deployed; no secrets)
+├── requirements.txt                # Pinned to production versions
+├── scripts/build_and_deploy.sh     # Build + deploy either function
+├── docs/PRODUCTION_STATE.md        # Deployed AWS resources (source of truth)
 └── README.md                       # This file
 ```
+
+> **Handler naming:** both Lambdas are configured with the handler
+> `lambda_function.lambda_handler`. The build script renames the descriptive
+> source file to `lambda_function.py` inside the deployment package, so
+> `qb-avsight-sync.py` and `end_of_day_email.py` are never both in one zip.
+
+> **This repo is the source of truth.** It was reconciled against the live
+> Lambda packages on 2026-08-28. Deploy only via `scripts/build_and_deploy.sh`
+> so the two never drift again; see `docs/PRODUCTION_STATE.md` for the full
+> deployed configuration.
 
 ## 🚀 Setup Instructions
 
@@ -80,29 +92,22 @@ aws secretsmanager create-secret \
     }'
 ```
 
-### 3. Package Lambda Deployment
+### 3. Package and Deploy
 
-Create deployment package with dependencies:
+Use the build script — it assembles the correct module set per function, pins
+dependencies to the versions running in production, renames the handler, and
+excludes the packages provided by Lambda layers:
 
 ```bash
-# Create deployment directory
-mkdir lambda-deployment
-cd lambda-deployment
-
-# Copy code files
-cp ../qb-avsight-sync.py .
-cp ../quickbooks_connector.py .
-cp ../salesforce_connector.py .
-cp ../utils.py .
-cp ../config.py .
-cp ../config.json .
-
-# Install dependencies
-pip install -r ../requirements.txt -t .
-
-# Create ZIP
-zip -r lambda-deployment.zip .
+scripts/build_and_deploy.sh sync            # deploy qb-avsight-sync
+scripts/build_and_deploy.sh eod             # deploy qb-avsight-end-of-day-email
+scripts/build_and_deploy.sh sync --dry-run  # build the zip only
 ```
+
+**Lambda layers supply `pandas`/`boto3` (`AWSSDKPandas-Python311`) and
+`pioneer_email` (`pioneer-email`).** These are deliberately not vendored here;
+`utils.py` imports `pioneer_email.templates` and will not run outside Lambda
+without that layer.
 
 ### 4. Create Lambda Function
 
@@ -181,11 +186,17 @@ recipients = [
 
 ### Sync Schedule
 
-Modify the EventBridge cron expression to change sync frequency:
+Three EventBridge rules drive the automation (all times UTC):
 
-- Daily at 8 AM: `cron(0 8 * * ? *)`
-- Every 6 hours: `cron(0 */6 * * ? *)`
-- Weekdays at 9 AM: `cron(0 9 ? * MON-FRI *)`
+| Rule | Expression | Target | Payload |
+|---|---|---|---|
+| `qb-avsight-sync-schedule` | `cron(*/15 14-23 * * ? *)` | `qb-avsight-sync` | `{"sync_mode": "incremental"}` |
+| `qb-avsight-sync-full-schedule` | `cron(50 13 * * ? *)` | `qb-avsight-sync` | `{"sync_mode": "full"}` |
+| `qb-avsight-end-of-day-email` | `cron(2 23 * * ? *)` | `qb-avsight-end-of-day-email` | *(none)* |
+
+The sync mode is chosen by the EventBridge payload, not by separate functions.
+Incremental runs use the last-run timestamp; a nightly full sync backfills
+anything the incremental pass missed.
 
 ## 📊 What Gets Synced
 
@@ -198,6 +209,19 @@ Modify the EventBridge cron expression to change sync frequency:
 - Updates existing bill balances and amounts
 - Inserts new bills from QuickBooks
 - Maintains bill dates and due dates
+
+### Invoice Paid Dates
+- Reads QuickBooks `Payment` records and computes, per fully-paid invoice, the
+  date of the payment that drove the balance to zero
+- Applied per payment *line* (`Line.Amount`), not per payment total — QuickBooks
+  writes valid `TotalAmt = 0` payments when applying existing customer credit
+
+### PO Numbers (Salesforce → QuickBooks)
+- Writes the AvSight PO number back onto the QuickBooks invoice's
+  `P.O. Number` custom field via sparse update
+- The only flow that writes *into* QuickBooks; everything else is read-only
+- Gated by `po_sync_enabled` and capped by `po_sync_batch_size` in `config.json`
+- Handles stale `SyncToken` conflicts (QuickBooks error 5010)
 
 ## 🔐 Security Best Practices
 
@@ -225,8 +249,19 @@ aws lambda invoke \
 ### Common Issues
 
 **Token expired errors:**
-- Lambda automatically refreshes tokens
-- Check that Lambda has permission to update secrets
+- Lambda refreshes tokens automatically. QuickBooks rotates the refresh token on
+  every refresh, so `QuickBooksConnector` persists the new one to Secrets Manager
+  *immediately* via the `on_token_refresh` callback — the execution role needs
+  `secretsmanager:UpdateSecret`.
+- If the refresh token dies (`invalid_grant`), the sync emails an alert via
+  `send_auth_failure_alert()`, throttled to once per UTC day by an S3 marker
+  under `alerts/qb-auth-failure/`. Re-authenticate to recover, then run a
+  catch-up full sync:
+  ```bash
+  aws lambda invoke --function-name qb-avsight-sync \
+      --payload '{"sync_mode":"full"}' \
+      --cli-binary-format raw-in-base64-out /tmp/qb.json
+  ```
 
 **Salesforce authentication fails:**
 - Verify security token is current
@@ -248,17 +283,20 @@ Key metrics to monitor in CloudWatch:
 
 ## 🔄 Updating the Lambda
 
-When you make code changes:
+Commit the change, then deploy from the repo:
 
 ```bash
-# Repackage
-cd lambda-deployment
-zip -r lambda-deployment.zip .
+scripts/build_and_deploy.sh sync   # or: eod
+```
 
-# Update function
-aws lambda update-function-code \
-    --function-name qb-avsight-sync \
-    --zip-file fileb://lambda-deployment.zip
+To confirm the deployed code matches this repo, compare the handler in the live
+package against the source:
+
+```bash
+aws lambda get-function --function-name qb-avsight-sync \
+    --query 'Code.Location' --output text \
+  | xargs curl -s -o /tmp/live.zip
+unzip -p /tmp/live.zip lambda_function.py | diff - qb-avsight-sync.py && echo "in sync"
 ```
 
 ## 📝 File Explanations
@@ -287,19 +325,26 @@ aws lambda update-function-code \
 
 **utils.py**
 - AWS Secrets Manager integration
-- Email notification system
+- Email notification system (SES + the `pioneer-email` layer templates)
+- OAuth failure alerting with daily S3-marker throttling
+- S3 persistence for daily summaries and bulk write results
 - Time formatting helpers
 
 **config.py** & **config.json**
 - Configuration management
-- Settings for batch sizes, directories, email recipients
+- Settings for batch sizes, directories, email recipients, PO sync toggles
+- `config.json` is deployed with the code and contains no secrets
 
 ### Directory Structure
 
-- `archive/` - Contains test scripts, helper utilities, old deployment packages, and backup files
-- `docs/` - Contains all markdown documentation files
-- `deploy_packages/` - Contains deployment packages for Lambda functions (can be regenerated from source)
-- `venv/` - Python virtual environment for local development (should be in `.gitignore`)
+- `scripts/` - Build and deploy tooling
+- `docs/` - Documentation; `PRODUCTION_STATE.md` records the deployed AWS resources
+- `archive/` - Test scripts, helper utilities, and backup files
+- `deploy_packages/` - **Stale.** Vendored copies of an older build, kept from
+  before this repo was reconciled with production. They are *not* the source of
+  truth and contain outdated copies of `lambda_function.py` / `utils.py`. Build
+  from the repo root via `scripts/build_and_deploy.sh` instead.
+- `website/` - Static site for the separate `airbridge-contact-form` automation
 
 ## 🤝 Support
 
@@ -315,5 +360,5 @@ Internal use only - Pioneer Aero Supply
 
 ---
 
-**Last Updated:** December 2025
-**Version:** 2.0 (AWS Lambda Migration)
+**Last Updated:** August 2026
+**Version:** 2.1 (reconciled with production — see `docs/PRODUCTION_STATE.md`)

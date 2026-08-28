@@ -76,6 +76,12 @@ class SalesforceConnector:
         """
         # First get field names
         fields = self.soql_to_df(f"SELECT FIELDS(ALL) FROM {object_name} LIMIT 1")
-        fields = fields.drop(columns=["attributes"]).columns.tolist()
+        # Handle empty dataframe case
+        if fields.empty:
+            return fields
+        # Drop attributes column if it exists
+        if "attributes" in fields.columns:
+            fields = fields.drop(columns=["attributes"])
+        field_list = fields.columns.tolist()
         # Then get all records with those fields
-        return self.soql_to_df(f"SELECT {','.join(fields)} FROM {object_name}")
+        return self.soql_to_df(f"SELECT {','.join(field_list)} FROM {object_name}")

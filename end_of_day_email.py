@@ -44,16 +44,6 @@ def lambda_handler(event, context):
         
         print(f"\n📅 Processing daily summary for: {date_str}")
         
-        # Get SMTP credentials from Secrets Manager
-        print("\n🔐 Retrieving SMTP credentials from Secrets Manager...")
-        debug_print("Calling get_secret('smtp/credentials')...")
-        try:
-            smtp_creds = get_secret('smtp/credentials')
-            debug_print(f"SMTP credentials retrieved. Keys: {list(smtp_creds.keys()) if smtp_creds else 'None'}")
-        except Exception as secret_err:
-            debug_print(f"Error retrieving SMTP credentials: {secret_err}")
-            raise
-        
         # Get Salesforce credentials from Secrets Manager
         print("\n🔐 Retrieving Salesforce credentials from Secrets Manager...")
         debug_print("Calling get_secret('salesforce/credentials')...")
@@ -75,9 +65,8 @@ def lambda_handler(event, context):
         
         # Send the end-of-day email
         print(f"\n📧 Sending end-of-day email for {date_str}...")
-        debug_print(f"Calling send_end_of_day_email with date_str={date_str}, smtp_config provided, recipients={recipients}, sf_credentials provided")
+        debug_print(f"Calling send_end_of_day_email with date_str={date_str}, recipients={recipients}, sf_credentials provided")
         email_result = send_end_of_day_email(date_str=date_str, 
-                                smtp_config=smtp_creds,
                                 recipients=recipients,
                                 sf_credentials=sf_creds)
         debug_print(f"send_end_of_day_email returned: {email_result}")

@@ -106,3 +106,13 @@ def get_enable_incremental_sync() -> bool:
     """Get whether incremental sync is enabled"""
     return Config.get('enable_incremental_sync', False)
 
+
+def get_po_sync_enabled() -> bool:
+    """Get whether PO number sync (SF → QB) is enabled"""
+    return Config.get('po_sync_enabled', False)
+
+
+def get_po_sync_batch_size() -> int:
+    """Get max number of PO number updates per sync run"""
+    return Config.get('po_sync_batch_size', 200)
+

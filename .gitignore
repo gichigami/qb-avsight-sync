@@ -1,9 +1,13 @@
-# Config file with potentially sensitive settings
-config.json
-
-# Credentials
+# Credentials — never commit. These are stored in AWS Secrets Manager.
 qb_credentials.json
+*credentials*.json
+secrets.json
+
+# Ignore stray JSON by default, but config.json is tracked: it is the runtime
+# config deployed alongside the Lambda code and contains no secrets (batch
+# sizes, email recipients, S3 bucket name).
 *.json
+!config.json
 !package.json
 
 # Python
